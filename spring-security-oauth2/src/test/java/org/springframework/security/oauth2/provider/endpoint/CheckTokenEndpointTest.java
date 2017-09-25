@@ -19,6 +19,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.security.oauth2.provider.OAuth2Authentication;
+import org.springframework.security.oauth2.provider.entity.CheckTokenEntity;
 import org.springframework.security.oauth2.provider.token.AccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.ResourceServerTokenServices;
 
@@ -35,30 +36,34 @@ import static org.mockito.Mockito.when;
  * @author Joe Grandja
  */
 public class CheckTokenEndpointTest {
-	private CheckTokenEndpoint checkTokenEndpoint;
+    private CheckTokenEndpoint checkTokenEndpoint;
 
-	@Before
-	public void setUp() {
-		ResourceServerTokenServices resourceServerTokenServices = mock(ResourceServerTokenServices.class);
-		OAuth2AccessToken accessToken = mock(OAuth2AccessToken.class);
-		OAuth2Authentication authentication = mock(OAuth2Authentication.class);
-		when(resourceServerTokenServices.readAccessToken(anyString())).thenReturn(accessToken);
-		when(accessToken.isExpired()).thenReturn(false);
-		when(accessToken.getValue()).thenReturn("access-token-1234");
-		when(resourceServerTokenServices.loadAuthentication(accessToken.getValue())).thenReturn(authentication);
-		this.checkTokenEndpoint = new CheckTokenEndpoint(resourceServerTokenServices);
+    @Before
+    public void setUp() {
+        ResourceServerTokenServices resourceServerTokenServices = mock(ResourceServerTokenServices.class);
+        OAuth2AccessToken accessToken = mock(OAuth2AccessToken.class);
+        OAuth2Authentication authentication = mock(OAuth2Authentication.class);
+        when(resourceServerTokenServices.readAccessToken(anyString())).thenReturn(accessToken);
+        when(accessToken.isExpired()).thenReturn(false);
+        when(accessToken.getValue()).thenReturn("access-token-1234");
+        when(resourceServerTokenServices.loadAuthentication(accessToken.getValue())).thenReturn(authentication);
+        this.checkTokenEndpoint = new CheckTokenEndpoint(resourceServerTokenServices);
 
-		AccessTokenConverter accessTokenConverter = mock(AccessTokenConverter.class);
-		when(accessTokenConverter.convertAccessToken(accessToken, authentication)).thenReturn(new HashMap());
-		this.checkTokenEndpoint.setAccessTokenConverter(accessTokenConverter);
-	}
+        AccessTokenConverter accessTokenConverter = mock(AccessTokenConverter.class);
+        when(accessTokenConverter.convertAccessToken(accessToken, authentication)).thenReturn(new HashMap());
+        this.checkTokenEndpoint.setAccessTokenConverter(accessTokenConverter);
+    }
 
-	// gh-1070
-	@Test
-	public void checkTokenWhenTokenValidThenReturnActiveAttribute() throws Exception {
-		Map<String, ?> response = this.checkTokenEndpoint.checkToken("access-token-1234");
-		Object active = response.get("active");
-		assertNotNull("active is null", active);
-		assertEquals("active not true", Boolean.TRUE, active);
-	}
+    // gh-1070
+    @Test
+    public void checkTokenWhenTokenValidThenReturnActiveAttribute() throws Exception {
+        Map<String, ?> response = this.checkTokenEndpoint.checkToken(buildToken());
+        Object active = response.get("active");
+        assertNotNull("active is null", active);
+        assertEquals("active not true", Boolean.TRUE, active);
+    }
+
+    private CheckTokenEntity buildToken() {
+        return new CheckTokenEntity();
+    }
 }

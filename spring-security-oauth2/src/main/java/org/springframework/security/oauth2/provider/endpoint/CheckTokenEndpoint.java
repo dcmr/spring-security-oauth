@@ -18,12 +18,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.security.oauth2.common.exceptions.InvalidTokenException;
 import org.springframework.security.oauth2.common.exceptions.OAuth2Exception;
+import org.springframework.security.oauth2.provider.CheckPermissions;
 import org.springframework.security.oauth2.provider.OAuth2Authentication;
+import org.springframework.security.oauth2.provider.entity.CheckTokenEntity;
 import org.springframework.security.oauth2.provider.error.DefaultWebResponseExceptionTranslator;
 import org.springframework.security.oauth2.provider.error.WebResponseExceptionTranslator;
 import org.springframework.security.oauth2.provider.token.AccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.DefaultAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.ResourceServerTokenServices;
+import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -33,77 +36,93 @@ import java.util.Map;
 
 /**
  * Controller which decodes access tokens for clients who are not able to do so (or where opaque token values are used).
- * 
+ *
  * @author Luke Taylor
  * @author Joel D'sa
  */
 @FrameworkEndpoint
 public class CheckTokenEndpoint {
 
-	private ResourceServerTokenServices resourceServerTokenServices;
+    private CheckPermissions checkPermissions;
 
-	private AccessTokenConverter accessTokenConverter = new DefaultAccessTokenConverter();
+    private ResourceServerTokenServices resourceServerTokenServices;
 
-	protected final Log logger = LogFactory.getLog(getClass());
+    private AccessTokenConverter accessTokenConverter = new DefaultAccessTokenConverter();
 
-	private WebResponseExceptionTranslator exceptionTranslator = new DefaultWebResponseExceptionTranslator();
+    protected final Log logger = LogFactory.getLog(getClass());
 
-	public CheckTokenEndpoint(ResourceServerTokenServices resourceServerTokenServices) {
-		this.resourceServerTokenServices = resourceServerTokenServices;
-	}
-	
-	/**
-	 * @param exceptionTranslator the exception translator to set
-	 */
-	public void setExceptionTranslator(WebResponseExceptionTranslator exceptionTranslator) {
-		this.exceptionTranslator = exceptionTranslator;
-	}
+    private WebResponseExceptionTranslator exceptionTranslator = new DefaultWebResponseExceptionTranslator();
 
-	/**
-	 * @param accessTokenConverter the accessTokenConverter to set
-	 */
-	public void setAccessTokenConverter(AccessTokenConverter accessTokenConverter) {
-		this.accessTokenConverter = accessTokenConverter;
-	}
+    public CheckTokenEndpoint(ResourceServerTokenServices resourceServerTokenServices) {
+        this.resourceServerTokenServices = resourceServerTokenServices;
+    }
 
-	@RequestMapping(value = "/oauth/check_token")
-	@ResponseBody
-	public Map<String, ?> checkToken(@RequestParam("token") String value) {
+    /**
+     * @param exceptionTranslator the exception translator to set
+     */
+    public void setExceptionTranslator(WebResponseExceptionTranslator exceptionTranslator) {
+        this.exceptionTranslator = exceptionTranslator;
+    }
 
-		OAuth2AccessToken token = resourceServerTokenServices.readAccessToken(value);
-		if (token == null) {
-			throw new InvalidTokenException("Token was not recognised");
-		}
+    /**
+     * @param accessTokenConverter the accessTokenConverter to set
+     */
+    public void setAccessTokenConverter(AccessTokenConverter accessTokenConverter) {
+        this.accessTokenConverter = accessTokenConverter;
+    }
 
-		if (token.isExpired()) {
-			throw new InvalidTokenException("Token has expired");
-		}
+    /**
+     * @param checkPermissions to set
+     */
+    public void setCheckPermissions(CheckPermissions checkPermissions) {
+        this.checkPermissions = checkPermissions;
+    }
 
-		OAuth2Authentication authentication = resourceServerTokenServices.loadAuthentication(token.getValue());
+    @RequestMapping(value = "/oauth/check_token")
+    @ResponseBody
+    public Map<String, ?> checkToken(CheckTokenEntity checkTokenEntity) {
 
-		Map<String, Object> response = (Map<String, Object>)accessTokenConverter.convertAccessToken(token, authentication);
+        Assert.notNull(checkTokenEntity, "invalid token entity!");
+        OAuth2AccessToken token = resourceServerTokenServices.readAccessToken(checkTokenEntity.getToken());
 
-		// gh-1070
-		response.put("active", true);	// Always true if token exists and not expired
+        if (token == null) {
+            throw new InvalidTokenException("Token was not recognised");
+        }
 
-		return response;
-	}
+        if (token.isExpired()) {
+            throw new InvalidTokenException("Token has expired");
+        }
 
-	@ExceptionHandler(InvalidTokenException.class)
-	public ResponseEntity<OAuth2Exception> handleException(Exception e) throws Exception {
-		logger.info("Handling error: " + e.getClass().getSimpleName() + ", " + e.getMessage());
-		// This isn't an oauth resource, so we don't want to send an
-		// unauthorized code here. The client has already authenticated
-		// successfully with basic auth and should just
-		// get back the invalid token error.
-		@SuppressWarnings("serial")
-		InvalidTokenException e400 = new InvalidTokenException(e.getMessage()) {
-			@Override
-			public int getHttpErrorCode() {
-				return 400;
-			}
-		};
-		return exceptionTranslator.translate(e400);
-	}
+        OAuth2Authentication authentication = resourceServerTokenServices.loadAuthentication(token.getValue());
+
+        Map<String, Object> response = (Map<String, Object>) accessTokenConverter.convertAccessToken(token, authentication);
+
+        //check for api permission
+        if (response.containsKey("jti")) {
+            Assert.isTrue(checkPermissions.checkPermission(checkTokenEntity));
+        }
+
+        // gh-1070
+        response.put("active", true);    // Always true if token exists and not expired
+
+        return response;
+    }
+
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<OAuth2Exception> handleException(Exception e) throws Exception {
+        logger.info("Handling error: " + e.getClass().getSimpleName() + ", " + e.getMessage());
+        // This isn't an oauth resource, so we don't want to send an
+        // unauthorized code here. The client has already authenticated
+        // successfully with basic auth and should just
+        // get back the invalid token error.
+        @SuppressWarnings("serial")
+        InvalidTokenException e400 = new InvalidTokenException(e.getMessage()) {
+            @Override
+            public int getHttpErrorCode() {
+                return 400;
+            }
+        };
+        return exceptionTranslator.translate(e400);
+    }
 
 }

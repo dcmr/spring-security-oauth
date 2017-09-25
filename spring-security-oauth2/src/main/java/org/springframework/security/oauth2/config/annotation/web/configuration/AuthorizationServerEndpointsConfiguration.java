@@ -35,6 +35,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.oauth2.config.annotation.web.configuration.AuthorizationServerEndpointsConfiguration.TokenKeyEndpointRegistrar;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerEndpointsConfigurer;
+import org.springframework.security.oauth2.provider.CheckPermissions;
 import org.springframework.security.oauth2.provider.ClientDetailsService;
 import org.springframework.security.oauth2.provider.OAuth2RequestFactory;
 import org.springframework.security.oauth2.provider.OAuth2RequestValidator;
@@ -63,6 +64,9 @@ import org.springframework.stereotype.Component;
 public class AuthorizationServerEndpointsConfiguration {
 
 	private AuthorizationServerEndpointsConfigurer endpoints = new AuthorizationServerEndpointsConfigurer();
+
+	@Autowired
+	private CheckPermissions checkPermissions;
 
 	@Autowired
 	private ClientDetailsService clientDetailsService;
@@ -101,6 +105,7 @@ public class AuthorizationServerEndpointsConfiguration {
 	@Bean
 	public TokenEndpoint tokenEndpoint() throws Exception {
 		TokenEndpoint tokenEndpoint = new TokenEndpoint();
+		tokenEndpoint.setClientDetailsService(clientDetailsService);
 		tokenEndpoint.setClientDetailsService(clientDetailsService);
 		tokenEndpoint.setProviderExceptionHandler(exceptionTranslator());
 		tokenEndpoint.setTokenGranter(tokenGranter());
