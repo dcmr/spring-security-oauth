@@ -121,7 +121,7 @@
 		</plugins>
 	</build>
 
-	<distributionManagement>
+<!--	<distributionManagement>
 
 		<site>
 			<id>static.springframework.org</id>
@@ -140,9 +140,9 @@
 			<url>https://repo.spring.io/libs-snapshot-local</url>
 		</snapshotRepository>
 
-	</distributionManagement>
+	</distributionManagement>-->
 
-	<profiles>
+	<!--<profiles>
 		<profile>
 			<id>central</id>
 			<distributionManagement>
@@ -175,7 +175,7 @@
 				</plugins>
 			</build>
 		</profile>
-	</profiles>
+	</profiles>-->
 
 	<scm>
 		<url>http://github.com/spring-projects/spring-security-oauth</url>
